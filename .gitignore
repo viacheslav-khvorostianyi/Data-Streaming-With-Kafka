@@ -218,3 +218,4 @@ __marimo__/
 .streamlit/secrets.toml
 task2/logs/*
 task2/!logs/.gitkeep
+task3/data/history.csv

@@ -1,0 +1,47 @@
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.1.1
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --smp 1
+      - --memory 1G
+      - --mode dev-container
+      - --default-log-level=warn
+    ports:
+      - "19092:19092"
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health", "--api-urls", "localhost:9644"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  generator:
+    build: ./generator
+    environment:
+      BOOTSTRAP_SERVERS: redpanda:9092
+      TOPIC: ${TOPIC:-browser.history.visits}
+      HISTORY_FILE: /data/history.csv
+    volumes:
+      - ./data:/data:ro
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: "no"
+
+  processor:
+    build: ./processor
+    environment:
+      BOOTSTRAP_SERVERS: redpanda:9092
+      TOPIC: ${TOPIC:-browser.history.visits}
+      GROUP_ID: ${GROUP_ID:-tld-counter}
+      TOP_N: ${TOP_N:-5}
+      PRINT_INTERVAL: ${PRINT_INTERVAL:-50}
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: "no"
