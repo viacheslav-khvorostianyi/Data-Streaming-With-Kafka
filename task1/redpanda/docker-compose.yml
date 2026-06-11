@@ -1,0 +1,103 @@
+version: "3.8"
+
+# 3-broker Redpanda cluster using Raft-based consensus (no ZooKeeper, no KRaft).
+# redpanda-0 acts as the seed node; redpanda-1 and redpanda-2 join via --seeds.
+
+services:
+  redpanda-0:
+    image: redpandadata/redpanda:v24.1.1
+    container_name: redpanda-0
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda-0:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda-0:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr redpanda-0:33145
+      - --advertise-rpc-addr redpanda-0:33145
+      - --smp 1
+      - --memory 1G
+      - --mode dev-container
+      - --default-log-level=info
+    ports:
+      - "18081:18081"   # Schema Registry (external)
+      - "18082:18082"   # HTTP Proxy (external)
+      - "19092:19092"   # Kafka API (external)
+      - "9644:9644"     # Admin API
+    volumes:
+      - redpanda_0_data:/var/lib/redpanda/data
+
+  redpanda-1:
+    image: redpandadata/redpanda:v24.1.1
+    container_name: redpanda-1
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19093
+      - --advertise-kafka-addr internal://redpanda-1:9092,external://localhost:19093
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18083
+      - --advertise-pandaproxy-addr internal://redpanda-1:8082,external://localhost:18083
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18085
+      - --rpc-addr redpanda-1:33145
+      - --advertise-rpc-addr redpanda-1:33145
+      - --seeds redpanda-0:33145
+      - --smp 1
+      - --memory 1G
+      - --mode dev-container
+      - --default-log-level=info
+    ports:
+      - "19093:19093"   # Kafka API (external)
+      - "18083:18083"   # HTTP Proxy (external)
+      - "18085:18085"   # Schema Registry (external)
+    volumes:
+      - redpanda_1_data:/var/lib/redpanda/data
+    depends_on:
+      - redpanda-0
+
+  redpanda-2:
+    image: redpandadata/redpanda:v24.1.1
+    container_name: redpanda-2
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19094
+      - --advertise-kafka-addr internal://redpanda-2:9092,external://localhost:19094
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18084
+      - --advertise-pandaproxy-addr internal://redpanda-2:8082,external://localhost:18084
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18086
+      - --rpc-addr redpanda-2:33145
+      - --advertise-rpc-addr redpanda-2:33145
+      - --seeds redpanda-0:33145
+      - --smp 1
+      - --memory 1G
+      - --mode dev-container
+      - --default-log-level=info
+    ports:
+      - "19094:19094"   # Kafka API (external)
+      - "18084:18084"   # HTTP Proxy (external)
+      - "18086:18086"   # Schema Registry (external)
+    volumes:
+      - redpanda_2_data:/var/lib/redpanda/data
+    depends_on:
+      - redpanda-0
+
+  redpanda-console:
+    image: redpandadata/console:v2.5.2
+    container_name: redpanda-console
+    ports:
+      - "8081:8080"
+    environment:
+      KAFKA_BROKERS: redpanda-0:9092,redpanda-1:9092,redpanda-2:9092
+      REDPANDA_ADMINAPI_ENABLED: "true"
+      REDPANDA_ADMINAPI_URLS: http://redpanda-0:9644
+    depends_on:
+      - redpanda-0
+      - redpanda-1
+      - redpanda-2
+
+volumes:
+  redpanda_0_data:
+  redpanda_1_data:
+  redpanda_2_data:
